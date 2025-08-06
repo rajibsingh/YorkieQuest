@@ -21,9 +21,9 @@ class YorkieGameScene: SKScene {
         
         var row: Int {
             switch self {
-            case .walkUp: return 0
+            case .walkUp: return 2
             case .walkRight: return 1
-            case .walkDown: return 2
+            case .walkDown: return 0
             case .walkLeft: return 1
             case .idle: return 4
             case .snooze: return 7
@@ -37,7 +37,8 @@ class YorkieGameScene: SKScene {
             case .walkUp, .walkRight, .walkDown, .walkLeft: return 4
             case .idle: return 4
             case .snooze: return 2
-            case .runRight, .runLeft: return 4
+            case .runRight: return 3
+            case .runLeft: return 3
             }
         }
     }
