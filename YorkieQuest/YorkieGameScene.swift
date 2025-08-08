@@ -197,7 +197,7 @@ class YorkieGameScene: SKScene {
     }
     #endif
     
-    // iOS Keyboard Support (External keyboards)
+    // iOS Keyboard Support (External keyboards and iPad)  
     #if os(iOS)
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         for press in presses {
