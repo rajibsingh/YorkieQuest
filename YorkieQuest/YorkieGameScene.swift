@@ -1,5 +1,8 @@
 import SpriteKit
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 class YorkieGameScene: SKScene {
     private var yorkieSprite: SKSpriteNode!
@@ -8,6 +11,11 @@ class YorkieGameScene: SKScene {
     private var lastInteractionTime: TimeInterval = 0
     private var isMoving = false
     private var currentAnimation: YorkieAnimation?
+    
+    // Keyboard input state
+    private var keysPressed: Set<String> = []
+    private var currentDirection: CGPoint = CGPoint.zero
+    private var keyboardMovementSpeed: CGFloat = 150.0
     
     private let spriteSize = CGSize(width: 32, height: 32)
     private let yorkieScale: CGFloat = 2.0
@@ -53,6 +61,7 @@ class YorkieGameScene: SKScene {
         let texture = createTextureFromSpriteSheet(row: YorkieAnimation.idle.row, frame: 0)
         yorkieSprite = SKSpriteNode(texture: texture)
         yorkieSprite.setScale(yorkieScale)
+        yorkieSprite.anchorPoint = CGPoint(x: 0.5, y: 0.5) // Center anchor to prevent clipping
         yorkieSprite.position = CGPoint(x: size.width / 2, y: size.height / 2)
         yorkiePosition = yorkieSprite.position
         addChild(yorkieSprite)
@@ -63,30 +72,34 @@ class YorkieGameScene: SKScene {
     private func createTextureFromSpriteSheet(row: Int, frame: Int) -> SKTexture {
         let spriteSheet = SKTexture(imageNamed: "yorkie")
         
-        // Let's get the actual sprite sheet dimensions first
+        // Get the actual sprite sheet dimensions
         let sheetSize = spriteSheet.size()
-        print("Sprite sheet size: \(sheetSize)")
         
-        // Assume 4 columns and calculate rows based on sheet dimensions
+        // Use 4 columns layout as specified in CLAUDE.md
         let cols = 4
         let spriteWidth = sheetSize.width / CGFloat(cols)
-        let spriteHeight = spriteWidth // Assume square sprites
+        let spriteHeight = spriteWidth // Keep square assumption but ensure proper bounds
         
-        print("Calculated sprite size: \(spriteWidth) x \(spriteHeight)")
-        
+        // Calculate position with proper bounds checking
         let x = CGFloat(frame) * spriteWidth
         let y = CGFloat(row) * spriteHeight
         
+        // Ensure we don't exceed sheet boundaries
+        let clampedWidth = min(spriteWidth, sheetSize.width - x)
+        let clampedHeight = min(spriteHeight, sheetSize.height - y)
+        
         let rect = CGRect(
             x: x / sheetSize.width,
-            y: 1.0 - (y + spriteHeight) / sheetSize.height,
-            width: spriteWidth / sheetSize.width,
-            height: spriteHeight / sheetSize.height
+            y: 1.0 - (y + clampedHeight) / sheetSize.height,
+            width: clampedWidth / sheetSize.width,
+            height: clampedHeight / sheetSize.height
         )
         
-        print("Extracting sprite at row \(row), frame \(frame): rect = \(rect)")
+        let texture = SKTexture(rect: rect, in: spriteSheet)
+        // Ensure texture filtering is set to nearest neighbor to prevent blurring/clipping
+        texture.filteringMode = .nearest
         
-        return SKTexture(rect: rect, in: spriteSheet)
+        return texture
     }
     
     private func startAnimation(_ animation: YorkieAnimation) {
@@ -124,9 +137,160 @@ class YorkieGameScene: SKScene {
         guard let touch = touches.first else { return }
         let location = touch.location(in: self)
         
+        // Stop keyboard movement when touch begins
+        currentDirection = CGPoint.zero
+        keysPressed.removeAll()
+        
         targetPosition = location
         lastInteractionTime = CACurrentMediaTime()
         moveToTarget()
+    }
+    
+    // MARK: - Keyboard Input Handling
+    
+    #if os(macOS)
+    override func keyDown(with event: NSEvent) {
+        guard let characters = event.charactersIgnoringModifiers else { return }
+        
+        for character in characters {
+            let key = String(character).lowercased()
+            
+            // Handle special keys using key codes
+            var keyString = key
+            switch event.keyCode {
+            case 126: keyString = "up"    // Up arrow
+            case 125: keyString = "down"  // Down arrow  
+            case 123: keyString = "left"  // Left arrow
+            case 124: keyString = "right" // Right arrow
+            default: break
+            }
+            
+            if ["up", "down", "left", "right"].contains(keyString) {
+                keysPressed.insert(keyString)
+                updateKeyboardMovement()
+                lastInteractionTime = CACurrentMediaTime()
+            }
+        }
+    }
+    
+    override func keyUp(with event: NSEvent) {
+        guard let characters = event.charactersIgnoringModifiers else { return }
+        
+        for character in characters {
+            let key = String(character).lowercased()
+            
+            // Handle special keys using key codes
+            var keyString = key
+            switch event.keyCode {
+            case 126: keyString = "up"    // Up arrow
+            case 125: keyString = "down"  // Down arrow
+            case 123: keyString = "left"  // Left arrow
+            case 124: keyString = "right" // Right arrow
+            default: break
+            }
+            
+            if ["up", "down", "left", "right"].contains(keyString) {
+                keysPressed.remove(keyString)
+                updateKeyboardMovement()
+            }
+        }
+    }
+    #endif
+    
+    // iOS Keyboard Support (External keyboards)
+    #if os(iOS)
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for press in presses {
+            guard let key = press.key else { continue }
+            
+            var keyString = ""
+            switch key.keyCode {
+            case .keyboardUpArrow: keyString = "up"
+            case .keyboardDownArrow: keyString = "down"
+            case .keyboardLeftArrow: keyString = "left"
+            case .keyboardRightArrow: keyString = "right"
+            default: break
+            }
+            
+            if !keyString.isEmpty {
+                keysPressed.insert(keyString)
+                updateKeyboardMovement()
+                lastInteractionTime = CACurrentMediaTime()
+            }
+        }
+        
+        super.pressesBegan(presses, with: event)
+    }
+    
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for press in presses {
+            guard let key = press.key else { continue }
+            
+            var keyString = ""
+            switch key.keyCode {
+            case .keyboardUpArrow: keyString = "up"
+            case .keyboardDownArrow: keyString = "down"
+            case .keyboardLeftArrow: keyString = "left"
+            case .keyboardRightArrow: keyString = "right"
+            default: break
+            }
+            
+            if !keyString.isEmpty {
+                keysPressed.remove(keyString)
+                updateKeyboardMovement()
+            }
+        }
+        
+        super.pressesEnded(presses, with: event)
+    }
+    #endif
+    
+    private func updateKeyboardMovement() {
+        // Calculate direction based on pressed keys
+        var direction = CGPoint.zero
+        
+        if keysPressed.contains("up") {
+            direction.y += 1
+        }
+        if keysPressed.contains("down") {
+            direction.y -= 1
+        }
+        if keysPressed.contains("left") {
+            direction.x -= 1
+        }
+        if keysPressed.contains("right") {
+            direction.x += 1
+        }
+        
+        // Normalize diagonal movement
+        if direction.x != 0 && direction.y != 0 {
+            let length = sqrt(direction.x * direction.x + direction.y * direction.y)
+            direction.x /= length
+            direction.y /= length
+        }
+        
+        currentDirection = direction
+        
+        // Stop any existing movement actions
+        yorkieSprite.removeAction(forKey: "move")
+        targetPosition = nil
+        
+        // Update animation based on direction
+        if direction != CGPoint.zero {
+            isMoving = true
+            let animation = getAnimationForDirection(direction, isRunning: false)
+            startAnimation(animation)
+            
+            // Handle horizontal flipping properly to avoid clipping
+            if animation == .walkLeft || animation == .runLeft {
+                yorkieSprite.xScale = -abs(yorkieScale)
+            } else {
+                yorkieSprite.xScale = abs(yorkieScale)
+            }
+        } else {
+            isMoving = false
+            startAnimation(.idle)
+        }
     }
     
     private func moveToTarget() {
@@ -143,10 +307,11 @@ class YorkieGameScene: SKScene {
         let animation = getAnimationForDirection(normalizedDirection, isRunning: isRunning)
         startAnimation(animation)
         
+        // Handle horizontal flipping properly to avoid clipping
         if animation == .walkLeft || animation == .runLeft {
-            yorkieSprite.xScale = -abs(yorkieSprite.xScale)
+            yorkieSprite.xScale = -abs(yorkieScale)
         } else {
-            yorkieSprite.xScale = abs(yorkieSprite.xScale)
+            yorkieSprite.xScale = abs(yorkieScale)
         }
         
         let moveTime = TimeInterval(distance / speed)
@@ -182,7 +347,33 @@ class YorkieGameScene: SKScene {
     override func update(_ currentTime: TimeInterval) {
         super.update(currentTime)
         
-        if !isMoving && currentTime - lastInteractionTime > snoozeDelay {
+        // Handle keyboard movement
+        if currentDirection != CGPoint.zero {
+            let deltaTime = 1.0 / 60.0 // Assume 60 FPS
+            let movement = CGPoint(
+                x: currentDirection.x * keyboardMovementSpeed * deltaTime,
+                y: currentDirection.y * keyboardMovementSpeed * deltaTime
+            )
+            
+            let newPosition = CGPoint(
+                x: yorkieSprite.position.x + movement.x,
+                y: yorkieSprite.position.y + movement.y
+            )
+            
+            // Keep sprite within bounds
+            let clampedPosition = CGPoint(
+                x: max(0, min(size.width, newPosition.x)),
+                y: max(0, min(size.height, newPosition.y))
+            )
+            
+            yorkieSprite.position = clampedPosition
+            yorkiePosition = clampedPosition
+            
+            isMoving = true
+        }
+        
+        // Handle snooze animation when not moving
+        if !isMoving && currentDirection == CGPoint.zero && currentTime - lastInteractionTime > snoozeDelay {
             if currentAnimation != .snooze {
                 startAnimation(.snooze)
             }
