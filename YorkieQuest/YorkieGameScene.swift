@@ -141,7 +141,7 @@ class YorkieGameScene: SKScene {
             animationDuration = 1.5
         }
         
-        let animateAction = SKAction.animate(with: textures, timePerFrame: animationDuration / Double(frameCount))
+        let animateAction = SKAction.animate(with: textures, timePerFrame: animationDuration / Double(textures.count))
         let repeatAction = SKAction.repeatForever(animateAction)
         yorkieSprite.run(repeatAction, withKey: "animation")
     }
