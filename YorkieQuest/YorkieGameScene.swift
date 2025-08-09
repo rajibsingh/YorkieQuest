@@ -12,6 +12,10 @@ class YorkieGameScene: SKScene {
     private var isMoving = false
     private var currentAnimation: YorkieAnimation?
     
+    // Texture caching
+    private var spriteSheetTexture: SKTexture!
+    private var textureCache: [String: [SKTexture]] = [:]
+    
     // Keyboard input state
     private var keysPressed: Set<String> = []
     private var currentDirection: CGPoint = CGPoint.zero
@@ -53,6 +57,7 @@ class YorkieGameScene: SKScene {
     
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.8, green: 0.9, blue: 0.8, alpha: 1.0)
+        spriteSheetTexture = SKTexture(imageNamed: "yorkie")
         setupYorkie()
         lastInteractionTime = CACurrentMediaTime()
     }
@@ -70,10 +75,8 @@ class YorkieGameScene: SKScene {
     }
     
     private func createTextureFromSpriteSheet(row: Int, frame: Int) -> SKTexture {
-        let spriteSheet = SKTexture(imageNamed: "yorkie")
-        
         // Get the actual sprite sheet dimensions
-        let sheetSize = spriteSheet.size()
+        let sheetSize = spriteSheetTexture.size()
         
         // Use 4 columns layout as specified in CLAUDE.md
         let cols = 4
@@ -95,7 +98,7 @@ class YorkieGameScene: SKScene {
             height: clampedHeight / sheetSize.height
         )
         
-        let texture = SKTexture(rect: rect, in: spriteSheet)
+        let texture = SKTexture(rect: rect, in: spriteSheetTexture)
         // Ensure texture filtering is set to nearest neighbor to prevent blurring/clipping
         texture.filteringMode = .nearest
         
@@ -108,12 +111,22 @@ class YorkieGameScene: SKScene {
         yorkieSprite.removeAllActions()
         currentAnimation = animation
         
-        var textures: [SKTexture] = []
-        let frameCount = animation.frameCount
+        // Get cached textures or create them
+        let animationKey = "\(animation.row)_\(animation.frameCount)"
+        let textures: [SKTexture]
         
-        for frame in 0..<frameCount {
-            let texture = createTextureFromSpriteSheet(row: animation.row, frame: frame)
-            textures.append(texture)
+        if let cachedTextures = textureCache[animationKey] {
+            textures = cachedTextures
+        } else {
+            var newTextures: [SKTexture] = []
+            let frameCount = animation.frameCount
+            
+            for frame in 0..<frameCount {
+                let texture = createTextureFromSpriteSheet(row: animation.row, frame: frame)
+                newTextures.append(texture)
+            }
+            textureCache[animationKey] = newTextures
+            textures = newTextures
         }
         
         let animationDuration: TimeInterval
