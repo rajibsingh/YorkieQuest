@@ -58,11 +58,19 @@ xcodebuild -project YorkieQuest.xcodeproj -scheme YorkieQuest -destination 'gene
 
 ## Game Mechanics
 
-- **Touch-to-Move**: Tap anywhere on screen to make the Yorkie move to that location
+### Controls
+- **Touch Controls**: Tap anywhere on screen to make the Yorkie move to that location
+- **Keyboard Controls**: Use arrow keys (↑↓←→) to control the Yorkie with continuous movement
+  - **Cross-Platform Support**: Works on macOS (via `NSEvent`) and iOS/iPadOS with external keyboards (via `UIPress`)
+  - **iPad Compatibility**: Full support for external keyboards on iPad (Magic Keyboard, Smart Keyboard, Bluetooth keyboards)
+  - **Continuous Movement**: Smooth, responsive movement at 150 points/second while keys are held
+  - **Multi-Key Support**: Diagonal movement when multiple keys are pressed (e.g., Up+Right)
+
+### Gameplay Features
 - **Distance-Based Animation**: Short distances trigger walking animations, long distances (>150 points) trigger running
 - **Directional Animation**: Yorkie faces correct direction with appropriate sprite animations
 - **Idle Behavior**: After 10 seconds of inactivity, Yorkie starts snoozing animation
-- **Sprite System**: Uses texture atlas extraction from a single sprite sheet
+- **Sprite System**: Uses texture atlas extraction from a single sprite sheet with bounds checking and nearest-neighbor filtering
 
 ## Sprite Sheet Animation Mapping
 
@@ -77,10 +85,32 @@ The game uses a sprite sheet (`yorkie.png`) with the following row/frame mapping
 - **Run Right**: Row 8, Frames 0-2 (3 frames)
 - **Run Left**: Row 9, Frames 0-2 (3 frames)
 
+## Technical Implementation
+
+### Input System
+- **Dual Input Architecture**: Touch and keyboard controls work simultaneously without conflicts
+- **Platform-Specific Handling**: 
+  - macOS: `keyDown`/`keyUp` with `NSEvent` for desktop keyboard input
+  - iOS/iPadOS: `pressesBegan`/`pressesEnded` with `UIPress` for external keyboard support
+- **State Management**: Uses `Set<String>` to track currently pressed keys for multi-key combinations
+- **Movement Integration**: Keyboard input overrides touch movement; touch input temporarily disables keyboard movement
+
+### Sprite Rendering Improvements
+- **Texture Extraction**: Enhanced bounds checking prevents texture clipping during sprite sheet extraction
+- **Filtering Mode**: Uses `.nearest` filtering to maintain pixel-perfect sprite rendering
+- **Anchor Point**: Centered anchor point (0.5, 0.5) prevents sprite clipping during animations
+- **Scale Handling**: Consistent scale management prevents visual artifacts during horizontal flipping
+
+### Performance Optimizations
+- **60 FPS Movement**: Keyboard movement updates in the main game loop at target framerate
+- **Boundary Checking**: Efficient screen boundary clamping keeps Yorkie within visible area
+- **Animation Caching**: Texture arrays cached per animation type for smooth sprite transitions
+
 ## Development Notes
 
 - The project uses SwiftUI previews (`#Preview`) for development
-- Sprite sheet texture extraction uses dynamic sizing based on 4-column layout
+- Sprite sheet texture extraction uses dynamic sizing based on 4-column layout with enhanced bounds checking
 - Project follows standard iOS app conventions with automatic code signing
 - When adding new Swift files, ensure they're added to the appropriate target in Xcode project settings
+- Keyboard controls require external keyboards for iOS/iPadOS testing
 - Debug logging is available for sprite dimensions and extraction coordinates
